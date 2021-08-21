@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 
 const getUrl = 'https://www.flickr.com/services/rest/?method=flickr.photos.getRecent&api_key=5678f52d2b3c555b0e882454bab71c27&extras=url_n&format=json&nojsoncallback=1&per_page=100'
-
+let searchTimer;
 const PhotoData = () => {
     const loader = useRef(null);
     const [searchText, setSearchtext] = useState('');
@@ -14,6 +14,25 @@ const PhotoData = () => {
     const [modalSource, setModalSource] = useState('');
     const [userHistory, setUserHistory] = useState('');
 
+    ///Debounce Method 
+    const debounce = function (fn, delay) {
+
+        return function (...args) {
+            
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(() => {
+                console.log(delay);
+                setIsLoading(true);
+                setPhotosData([]);
+                fn.apply(this, args);
+            }, delay);
+
+
+        }
+    }
+
+
+    ///Code to check if user is at the end of the page
     const handleObserver = useCallback((entries) => {
 
         const target = entries[0];
@@ -35,6 +54,8 @@ const PhotoData = () => {
         const observer = new IntersectionObserver(handleObserver, option);
         if (loader.current) observer.observe(loader.current);
     }, [handleObserver]);
+
+    ///API call to the get the recent images which are loaded at the initial Load
     const getPhotos = async () => {
         try {
             const response = await axios.get(getUrl);
@@ -46,32 +67,43 @@ const PhotoData = () => {
         }
     }
 
+    ///Hook to get call the getPhotos methd at the initial page load
     useEffect(() => {
         getPhotos();
     }, [getUrl]);
 
+    ///method to set the text of the search parameter
     const searchPhotos = async (e) => {
+
         setSearchtext(e.target.value);
+
+        newSearch(e.target.value);
     }
 
+    ///Method to check if user has pressed enter to display the searched images
     const keyChangeFunction = async (e) => {
-        debugger;
+
         if (e.key === 'Enter') {
 
             setIsLoading(true);
+            clearTimeout(searchTimer);
             if (e.target.value === '') {
                 getPhotos();
             }
             else {
+
                 setPhotosData([]);
-                searchFunction(e.target.value);;
+                searchFunction(searchText);
 
             }
         }
 
-    }
-    const searchFunction = async (searchParameter) => {
 
+    }
+
+    ///Method to call the search API and display images
+    const searchFunction = async (searchParameter) => {
+        
         const maxHistoryLength = 10;
         var history = [];
         history = JSON.parse(localStorage.getItem('searchHistory')) || [];
@@ -95,6 +127,12 @@ const PhotoData = () => {
             console.log('Something went wrong. Sorry for the inconvenience caused.')
         }
     }
+    
+    
+    const newSearch = debounce(searchFunction, 1000);
+
+
+    ///Display the recent user searches
     const showRecentSearch = async (e) => {
         var history = [];
         history = JSON.parse(localStorage.getItem('searchHistory')) || [];
@@ -130,7 +168,6 @@ const PhotoData = () => {
 
                                     <li key={id} >
                                         <img src={url_n} alt={id} onClick={() => { setModalSource(url_n); setShowModal(true) }} />
-                                        {/* <img src={flag} className='blur' alt={alpha3Code} /> */}
 
                                     </li>)
                             }
